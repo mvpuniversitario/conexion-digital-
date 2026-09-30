@@ -20,7 +20,7 @@ button{border:0;border-radius:12px;padding:14px 18px;font-weight:900;cursor:poin
 <header><div class="brand">Conexión Digital</div><div class="tag">MVP UNIVERSITARIO</div></header>
 <main>
 <section class="hero"><h1>Tu tienda de siempre, <span>más cerca.</span></h1><p>Consulta productos básicos, arma tu pedido y confirma cómo deseas pagar. Una propuesta para conectar a los vecinos de Primero de Mayo con su tendero de confianza.</p></section>
-<section id="register" class="step active"><div class="panel"><h2>Empecemos tu pedido</h2><p>Ingresa tus datos para continuar. Todos los campos son obligatorios.</p><form id="regForm"><div class="grid"><div class="field"><label>Nombre completo</label><input id="name" required placeholder="Ej. María Pérez"></div><div class="field"><label>Número de teléfono</label><input id="phone" required inputmode="tel" placeholder="300 000 0000"></div><div class="field"><label>Dirección</label><input id="address" required placeholder="Calle, carrera, casa..."></div></div><button class="primary" type="button" id="registerBtn">Registrar y ver catálogo →</button><p id="regError" style="display:none;color:#b42318;font-weight:700;font-size:13px;margin:10px 0 0"></p></form></div></section>
+<section id="register" class="step active"><div class="panel"><h2>Empecemos tu pedido</h2><p>Ingresa tus datos para continuar. Todos los campos son obligatorios. Al registrarte, estos datos se enviarán al correo del proyecto para esta demostración académica.</p><form id="regForm"><div class="grid"><div class="field"><label>Nombre completo</label><input id="name" required placeholder="Ej. María Pérez"></div><div class="field"><label>Número de teléfono</label><input id="phone" required inputmode="tel" placeholder="300 000 0000"></div><div class="field"><label>Dirección</label><input id="address" required placeholder="Calle, carrera, casa..."></div></div><button class="primary" type="button" id="registerBtn">Registrar y ver catálogo →</button><p id="regError" role="alert" style="display:none;color:#b42318;font-weight:700;font-size:13px;margin:10px 0 0"></p></form></div></section>
 <section id="catalog" class="step"><div class="panel" style="max-width:100%"><h2>Catálogo básico</h2><p>Selecciona lo que necesitas. La cantidad está limitada por el stock disponible.</p><div id="products" class="products"></div><div class="summary"><div><small>Tu pedido</small><br><strong id="sumItems">0 productos</strong> · <strong id="sumTotal">$0</strong></div><button id="toPayment">Continuar al pago →</button></div></div></section>
 <section id="payment" class="step"><div class="panel"><h2>¿Cómo deseas pagar?</h2><div class="total" id="paymentTotal"></div><div class="paygrid"><div class="paycard" onclick="choosePayment('Transferencia')"><div class="emoji">📲</div><h3>Transferencia</h3><p>Paga mediante una cuenta demostrativa y adjunta tu comprobante.</p></div><div class="paycard" onclick="choosePayment('Efectivo')"><div class="emoji">💵</div><h3>Efectivo</h3><p>Paga al recibir tu pedido e indica si necesitas cambio.</p></div></div><button class="ghost" onclick="show('catalog')">← Volver al catálogo</button></div></section>
 <section id="transfer" class="step"><div class="panel"><h2>Pago por transferencia</h2><div class="notice"><strong>⚠ Datos simulados.</strong> Este MVP es académico. No realices pagos reales.</div><p><b>Llave:</b> MVP-TIENDA-001<br><b>Cuenta demostrativa:</b> 0000 0000 0000</p><div class="qr"><span>QR DEMOSTRATIVO<br>NO REALIZAR PAGOS</span></div><div class="field"><label>Adjuntar captura de pago *</label><input type="file" id="proof" accept="image/*" required></div><button class="primary" onclick="transferReceipt()">Generar recibo</button><button class="ghost" onclick="show('payment')">← Cambiar método</button></div></section>
@@ -35,7 +35,28 @@ function render(){document.getElementById('products').innerHTML=products.map(p=>
 function qty(id,d){let p=products[id];p.qty=Math.max(0,Math.min(p.stock,p.qty+d));render()}
 function selected(){return products.filter(p=>p.qty>0)}function total(){return selected().reduce((a,p)=>a+p.price*p.qty,0)}
 function summary(){let n=selected().reduce((a,p)=>a+p.qty,0);document.getElementById('sumItems').textContent=n+' producto'+(n==1?'':'s');document.getElementById('sumTotal').textContent=money(total())}
-document.getElementById('registerBtn').onclick=()=>{const n=document.getElementById('name'),p=document.getElementById('phone'),a=document.getElementById('address'),err=document.getElementById('regError'); if(!n.value.trim()||!p.value.trim()||!a.value.trim()){err.style.display='block';err.textContent='Completa nombre, teléfono y dirección para continuar.';return;} err.style.display='none';show('catalog');};
+const REGISTRO_URL = "https://script.google.com/macros/s/AKfycbyiwBv2CBDtqq1jeWwCZ5cWlo0kxJp23nrOJ_e71NRXy5cgx6sDg-LDj_CNVqey4GHz/exec";
+let registroEnCurso=false;
+document.getElementById('regForm').addEventListener('submit',e=>{e.preventDefault();document.getElementById('registerBtn').click()});
+document.getElementById('registerBtn').onclick=async()=>{
+  if(registroEnCurso)return;
+  const n=document.getElementById('name'),p=document.getElementById('phone'),a=document.getElementById('address'),err=document.getElementById('regError'),btn=document.getElementById('registerBtn');
+  if(!n.value.trim()||!p.value.trim()||!a.value.trim()){err.style.display='block';err.textContent='Completa nombre, teléfono y dirección para continuar.';return;}
+  registroEnCurso=true;btn.disabled=true;btn.textContent='Enviando datos…';err.style.display='none';
+  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),25000);
+  try{
+    const body=new URLSearchParams({nombre:n.value.trim(),telefono:p.value.trim(),direccion:a.value.trim()});
+    const response=await fetch(REGISTRO_URL,{method:'POST',body,signal:controller.signal,credentials:'omit'});
+    if(!response.ok)throw new Error('No se pudo confirmar el envío.');
+    const result=await response.json();
+    if(result.ok!==true){err.textContent=result.mensaje||'No se pudo enviar el correo. Intenta de nuevo.';err.style.display='block';return;}
+    show('catalog');
+  }catch(error){
+    err.style.display='block';err.textContent='No pudimos confirmar el envío. Revisa si el registro llegó al correo antes de volver a intentarlo y comprueba tu conexión.';
+  }finally{
+    clearTimeout(timeout);registroEnCurso=false;btn.disabled=false;btn.textContent='Registrar y ver catálogo →';
+  }
+};
 document.getElementById('toPayment').onclick=()=>{if(!selected().length)return alert('Selecciona al menos un producto.');document.getElementById('paymentTotal').textContent=money(total());show('payment')};
 function choosePayment(m){window.payMethod=m;if(m==='Transferencia')show('transfer');else{document.getElementById('cashTotal').textContent=money(total());show('cash')}}
 function needChange(y){document.getElementById('cashError').textContent='';document.getElementById('changeBox').style.display=y?'block':'none';document.getElementById('noChangeBox').style.display=y?'none':'block'}
